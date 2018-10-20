@@ -1,0 +1,17 @@
+---
+- hosts: all
+  tasks:
+  - name: make direcotry
+    file:
+      path: "/home/vagrant/.ssh"
+      state: directory
+  - name: create empty file
+    file:
+      path: "/home/vagrant/.ssh/authorized_keys"
+      state: touch
+
+  - name: Set authorized key took from file
+    authorized_key:
+      user: vagrant
+      state: present
+      key: "{{ lookup('file', '/home/vagrant/.ssh/id_rsa.pub') }}"

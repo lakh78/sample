@@ -1,0 +1,8 @@
+---
+# defaults file for cassandra_cluster
+cluster_name: New Cluster
+#seeds: [ '10.30.30.31' ]
+seeds:
+ - 10.30.30.31
+#rpc_address: {{ ansible_eth0.ipv4.address }}
+endpoint_snitch: GossipingPropertyFileSnitch

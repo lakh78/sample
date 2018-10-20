@@ -1,0 +1,9 @@
+---
+- name: Cassandra Cluster Install
+  hosts: all
+  user: vagrant
+  serial: 1
+  become: yes
+  roles:
+    - cassandra_cluster
+

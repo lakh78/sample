@@ -1,0 +1,55 @@
+---
+- name: Add the user 'johnd' with a specific uid and a primary group of 'admin'
+  user:
+    name: cassandra
+    state: present
+
+- name: Deploy repo file
+  copy:
+    src: cassandra.repo
+    dest: /etc/yum.repos.d/
+    owner: root
+    group: root
+    mode:  644
+  become: yes
+  become_user: root
+  become_method: sudo  
+
+- name: install the latest version of Apache cassandra
+  yum:
+    name: cassandra
+    state: latest
+  become: yes
+  become_user: root
+  become_method: sudo
+
+- name: Deploy Cassandra.yaml file
+  template:
+    src: cassandra.yaml.j2
+    dest: /etc/alternatives/cassandra/cassandra.yaml
+    owner: root
+    group: root
+  become: yes
+
+- lineinfile:
+    path: /etc/alternatives/cassandra/jvm.options
+    line: '-Dcassandra.ignore_dc=true'
+    create: yes
+  become: yes
+
+#- name: Start Cassandra Service
+#  service: name=cassandra state=started
+#  serial: 1
+#  become: yes
+
+#- name: Pausing for 5 seconds
+#  pause:
+#    seconds: 5
+
+#- name: Verify Cassandra Cluster status
+#  shell: nodetool status
+#  become: yes
+#  register: status
+#  when: inventory_hostname == "{{ groups ['cassandra'][0] }}"
+#- debug: var=status.stdout_lines
+

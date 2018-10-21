@@ -8,6 +8,8 @@
     - name: replace configs
       replace:
         path: /etc/alternatives/cassandra/cassandra.yaml
-        regexp: 'disk_failure_policy: stop'
-        replace: 'disk_failure_policy: die'
+#        regexp: 'disk_failure_policy: stop'
+#        replace: 'disk_failure_policy: die'
+        regexp: 'row_cache_size_in_mb: 10240'
+        replace: 'row_cache_size_in_mb: 1024'
         backup: yes

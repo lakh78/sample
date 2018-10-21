@@ -39,7 +39,7 @@
 
 - name: Start Cassandra Service
   service: name=cassandra state=started
-  serial: 1
+#  serial: 1
   become: yes
 
 - name: Pausing for 5 seconds

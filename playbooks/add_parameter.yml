@@ -1,0 +1,20 @@
+---
+- name: change config
+  hosts: all
+  user: vagrant
+  serial: 1
+  become: yes
+  tasks:
+    - name: replace configs
+      replace:
+        path: /tmp/test01.dat
+        regexp: 'row_cache_size_in_mb:*'
+        replace: 'row_cache_size_in_mb: 1024'
+        backup: yes
+
+    - name: Ansible insert lineinfile example
+      lineinfile:
+        dest: /tmp/test01.dat
+        line: 'row_cache_size_in_mb: 1024'
+        state: present
+        create: yes

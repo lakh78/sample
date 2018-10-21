@@ -1,0 +1,13 @@
+---
+- name: change config
+  hosts: all
+  user: vagrant
+  serial: 1
+  become: yes
+  tasks:
+    - name: Ansible insert lineinfile example
+      lineinfile:
+        dest: /tmp/test01.dat
+        line: Inserting a line in a file.
+        state: present
+        create: yes

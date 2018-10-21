@@ -1,0 +1,32 @@
+---
+- name: Cassandra Cluster Install
+  hosts: all
+  user: vagrant
+  become: yes
+  tasks:
+    - name: Stop Cassandra Service
+      service: name=cassandra state=stopped
+      become: yes
+      ignore_errors: true
+
+    - name: remove cassandra
+      yum:
+        name: cassandra
+        state: absent
+      become: yes
+      become_user: root
+      become_method: sudo
+
+    - file:
+        path: /var/lib/cassandra
+        state: absent
+      become: yes
+    - file:
+        path: /etc/alternatives/cassandra
+        state: absent
+      become: yes
+
+    - file:
+        path: /var/log/cassandra
+        state: absent
+      become: yes

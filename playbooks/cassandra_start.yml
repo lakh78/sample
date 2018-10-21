@@ -1,0 +1,27 @@
+---
+- name: stop cassandra
+  hosts: all
+  user: vagrant
+  become: yes
+  tasks:
+    - name: cassandra start
+      service:  name=cassandra state=started
+      become: yes
+
+    - name: Is cassandra service running?
+      shell: service cassandra status warn=false
+      become: yes
+      become_method: sudo
+      register: status
+    - debug: var=status.stdout_lines
+
+    - name: Check Cassandra nodetool status
+      shell: nodetool status
+      register: nodetool_status
+      until: nodetool_status.stdout.find("Datacenter") != -1
+      retries: 3
+      delay: 30
+
+    - name: Display nodetool status
+      debug:
+        msg: "{{ nodetool_status.stdout_lines }}"

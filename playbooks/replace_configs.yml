@@ -1,0 +1,13 @@
+---
+- name: change config
+  hosts: all
+  user: vagrant
+  serial: 1
+  become: yes
+  tasks:
+    - name: replace configs
+      replace:
+        path: /etc/alternatives/cassandra/cassandra.yaml
+        regexp: 'disk_failure_policy: stop'
+        replace: 'disk_failure_policy: die'
+        backup: yes

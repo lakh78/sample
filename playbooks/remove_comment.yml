@@ -1,0 +1,21 @@
+---
+- name: remove
+  hosts: all
+  user: vagrant
+  serial: 1
+  become: yes
+  tasks:
+     - name: remove comments
+       lineinfile:
+         dest: /etc/alternatives/cassandra/cassandra.yaml
+         regexp: "#.*"
+         state: absent
+       become: yes
+
+     - name: remove blank lines
+       lineinfile:
+         dest: /etc/alternatives/cassandra/cassandra.yaml
+         regexp: '(^\s*$)'
+         state: absent
+       become: yes
+

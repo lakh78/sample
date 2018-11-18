@@ -7,9 +7,22 @@
   tasks:
     - name: replace configs
       replace:
+<<<<<<< HEAD
+#        path: /etc/alternatives/cassandra/cassandra.yaml
+        path: /etc/alternatives/cassandra/jvm.options
+#        regexp: 'disk_failure_policy: stop'
+#        replace: 'disk_failure_policy: die'
+#        regexp: 'row_cache_size_in_mb: 10240'
+#        replace: 'row_cache_size_in_mb: 1024'
+        regexp: '#-Xms4G'
+        replace: '-Xms500M'
+#        regexp: '#-Xmx4G'
+#        replace: '-Xmx500M'
+=======
         path: /etc/alternatives/cassandra/cassandra.yaml
 #        regexp: 'disk_failure_policy: stop'
 #        replace: 'disk_failure_policy: die'
         regexp: 'row_cache_size_in_mb: 10240'
         replace: 'row_cache_size_in_mb: 1024'
+>>>>>>> 1b4474e1f83147b3aeccf9137f527bdf33682336
         backup: yes

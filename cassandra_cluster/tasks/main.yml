@@ -31,10 +31,12 @@
     group: root
   become: yes
 
-- lineinfile:
-    path: /etc/alternatives/cassandra/jvm.options
-    line: '-Dcassandra.ignore_dc=true'
-    create: yes
+- name: Deploy jvm_options.yaml file
+  template:
+    src: jvm.options.j2
+    dest: /etc/alternatives/cassandra/jvm.options
+    owner: root
+    group: root
   become: yes
 
 - name: Start Cassandra Service

@@ -1,0 +1,12 @@
+- name: Deploy jvm_options.yaml file
+  hosts: all
+  user: vagrant
+  become: yes
+  tasks:
+    - name: Deploy jvm_options file
+      template:
+        src: jvm.options.j2
+        dest: /etc/alternatives/cassandra/jvm.options
+        owner: root
+        group: root
+      become: yes

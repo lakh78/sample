@@ -1,0 +1,267 @@
+DSE Cassandra 6.7.7 installation/configuration
+This documentation will walk you through the steps of how to install DataStax Enterprise (DSE) 6.7.7.
+Table of Contents:
+•	Table of Contents:
+Step 1 – Configuring firewall ports 
+1.	All the following ports must be opened on all cassandra nodes,
+Public port
+Port number.	Description
+22	SSH port
+Cassandra inter-node ports
+Port number.	Description
+7000	Cassandra inter-node cluster communication.
+7001	Cassandra SSL inter-node cluster communication.
+7199	Cassandra JMX monitoring port.
+Cassandra client ports
+Port number.	Description
+9042	Cassandra client port.
+9160	Cassandra client port (Thrift).
+9142	Default for native_transport_port_ssl, useful when both encrypted and unencrypted connections are required 
+
+Step 2 - Ensuring NTP is installed: 
+Use the Network Time Protocol (NTP) to synchronize the clocks on all the nodes and application servers. 
+2.	Ensure you are the root user. (Sudo as root)
+3.	Run: sudo yum install ntp to ensure that this package is installed. 
+4.	Run: systemctl status ntpd to check if NTP is running on node. 
+5.	
+Step 3 - Configuring Kernel Parameters
+1.	cd to the following directory: /etc/sysctl.conf and add the following values to the file:
+Persist Updated Settings 
+#adding cassandra related kernel parameters 
+net.ipv4.tcp_keepalive_time=60
+net.ipv4.tcp_keepalive_probes=3
+net.ipv4.tcp_keepalive_intvl=10
+net.core.rmem_max=16777216
+net.core.wmem_max=16777216
+net.core.rmem_default=16777216
+net.core.wmem_default=16777216
+net.core.optmem_max=40960
+net.ipv4.tcp_rmem=4096 87380 16777216
+net.ipv4.tcp_wmem=4096 65536 16777216
+vm.max_map_count = 1048575
+For more information about the Kernel Parameters, please expand the below:
+ Understanding the Kernel Parameters... 
+1.	TCP keepalive function: This kernel feature ensures that a TCP connection will be kept active by simulating traffic on it so it is not marked by the communication layer as inactive. The 3 kernel parameters that control this feature are as follows: 
+1.	net.ipv4.tcp_keepalive_time=60 
+1.	This is the interval between the last data packet sent (simple ACKs are not considered as data) and the first keepalive prove; after the connection is marked to need keepalive, this counter is no longer used. 
+2.	net.ipv4.tcp_keepalive_probes=3 
+1.	This is the number of unacknowledged probes to send before considering the connection dead and notifying the application layer
+3.	net.ipv4.tcp_keepalive_intvl=10 
+1.	This is the interval between subsequent keepalive probes, regardless of what the connection has exchanged in the meantime.
+2.	net.core.rmem_max = 16777216 
+1.	This sets the max OS receive buffer size for all types of connections
+3.	net.core.wmem_max = 16777216 
+1.	This sets the max OS send buffer size for all types of connections
+4.	net.core.rmem_default = 16777216 
+1.	This sets the default OS receive buffer size for all types of connections
+5.	net.core.wmem_default = 16777216 
+1.	this sets the default OS send buffer size for all types of connections
+6.	net.core.optmem_max = 40960 
+1.	is the kernel option that affects the memory allocated to the cmsg list maintained by the kernel that contains extra packet information like SCM RIGHTS or IP TTL. Increasing this option allows the kernel to allocate more memory as needed for more control messages that need to be sent for each socket connected (including IPC sockets/pipes)
+7.	net.ipv4.tcp_rmem = 4096 97380 16777216 
+1.	The first value tells the kernel the minimum receive buffer for each TCP connection and this buffer is always allocated to a TCP socket, even under high pressure on the system.
+2.	The second value specified tells the kernel the default receive buffer allocated for each TCP socket. This value overrides the /proc/sys/net/core/rmem_default value used by other protocols
+3.	The third value specified specifies the maximum received buffer that can be allocated for a TCP socket.
+8.	net.ipv4.tcp_wmem = 4096 97380 16777216 
+1.	The first value in this variable tells the minimum TCP send buffer space available for a single TCP protocol
+2.	The second value tells us the default buffer space allowed for a single TCP socket to use
+3.	The third value tells the kernel the maximum TCP send buffer space
+9.	vm.max_map_count = 1048575 
+1.	This file contains the maximum number of memory map areas a process may have. Memory map areas are used as a side-effect of calling malloc, directly by mmap and mprotect, and also when loaded shared libraries. This setting essentially limits the number of discrete mapped memory areas. - On it's own it imposes no limit on the size of those ares or on the memory that is useable by a process.
+2.	Restart the server using the following command so the above changes take place: init 6/reboot
+1.	Once the server is back up and running, sudo as root again.
+Step 4: Disabling Swap
+Disable swap because the cassandra database has multiple replicas and transparent failover, it is preferable for a replica to be killed immediately when memory is low rather than go into swap. This will allow traffic to be immediately redirected to a functional replica instead of continuing to hit the replica that has high latency due to swapping. If your system has a lot of DRAM, swapping still lowers performance significantly because the OS swaps out executable code so that more DRAM is available for caching disks. If you insist on using swap, you can set the vm.swappiness=1. This allows the kernel swap out of the absolute least used parts.
+1.	To disable run the following command: sudo swapoff --all (Please note, that just by running this command you are not turning off swap permanently. You will need to remove all swap entries from the /etc/fstab or add this to the cassandra.service (write a script)).
+2.	Run the command top to see if swap has changed to 0.  
+1.	For example: 
+1.	 
+3.	Every time the server is restart, you will need to run sudo swapoff --all (unless added to the cassandra.service or permanently removed via /etc/fstab)
+  (Note: Swap memory has to be turned off during DSE startup/system startup permanently)
+Step 5: Disabling zone_relcaim_mode on NUMA systems
+The linux kernel can be inconsistent in enabling/disabling zone_relcame_mode, which can result in odd performance problems. To ensure that zone_reclaim_mode is disabled, run the below command:
+1.	To check that zone_reclaim_mode is disabled run the following command: cat /proc/sys/vm/zone_reclaim_mode
+2.	If zone_reclaim_mode is not 0, run the following command: echo 0 > /proc/sys/vm/zone_reclaim_mode
+Step 6: Checking/Changing Java Hugepages settings
+Many modern linux distributions ship with the Transparent Hugepges feature enabled by default (set to always). When Linux uses Transparent Hugepages, the kernel tries to allocate memory in large chunks (usually 2MG), rather than 4k. This allocation can improve performance by reducing the number of pages the CPU must track. However, some applications still allocate memory based on 4k pages, which can cause noticeable performance problems when Linux tries to defragment 2MB pages. To solve this issue, disable defrag for Transparent Hugepages:
+Run the following command: echo never | sudo tee /sys/kernel/mm/transparent_hugepage/defrag (This defaults to always) 
+Step 7: Installation of Java
+1.	Verify that a required version of Java is installed:
+java -version
+If Oracle Java, the results should look like:
+java version "1.8.0_181"
+Java(TM) SE Runtime Environment (build 1.8.0_181-b17)
+Java HotSpot(TM) 64-Bit Server VM (build 25.181-b01, mixed mode)
+If OpenJDK, the results should look like:
+openjdk version "1.8.0_171"
+OpenJDK Runtime Environment (build 1.8.0_171-8u171-b11-0ubuntu0.16.04.1-b11)
+OpenJDK 64-Bit Server VM (build 25.171-b11, mixed mode)
+If not Oracle Java 8, or OpenJDK 8, see Installing supporting software on DataStax Enterprise 6.7. 
+Important: Package management tools do not install Oracle Java.
+2.	Install the libaio package. For example:
+o	RHEL platforms:
+sudo yum install libaio
+o	Debian platforms:
+sudo apt-get install libaio1
+Step 8: Adding Cassandra user (if not exist)
+1.	 Add Cassandra user. Cassandra will be owner of DSE product and all the Cassandra processes and directories.
+useradd cassandra
+
+Step 9: Setting up user resource limits
+Use the ulimit -a command to view the current limits. Although limits can also be temporarily set using this command, DataStax recommends making the changes permanent.
+For more information, see Insufficient user resource limits errors.
+Debian-based systems
+1.	Edit the /etc/pam.d/su file and uncomment the following line to enable the pam_limits.so module:
+session    required   pam_limits.so
+This change to the PAM configuration file ensures that the system reads the files in the /etc/security/limits.d directory.
+2.	If you run DSE as root, some Linux distributions (such as Ubuntu), require setting the limits for the root user explicitly instead of using cassandra_user:
+3.	root - memlock unlimited
+4.	root - nofile 1048576
+5.	root - nproc 32768
+root - as unlimited
+RHEL-based systems
+1.	Set the nproc limits to 32768 in the /etc/security/limits.d/90-nproc.conf configuration file:
+cassandra_user - nproc 32768
+All systems
+1.	Add the following line to /etc/sysctl.conf:
+vm.max_map_count = 1048575
+2.	Open the configuration file for your installation type:
+Installation type	Configuration file
+Tarball installation	/etc/security/limits.conf
+Package installation	/etc/security/limits.d/cassandra.conf
+3.	Configure the following settings for the <cassandra_user> in the configuration file:
+4.	<cassandra_user> - memlock unlimited
+5.	<cassandra_user> - nofile 1048576
+6.	<cassandra_user> - nproc 32768
+<cassandra_user> - as unlimited
+7.	Reboot the server or run the following command to make all changes take effect:
+sudo sysctl -p
+
+Step 10: Optimize disk settings
+The default disk configurations on most Linux distributions are not optimal. Follow these steps to optimize settings for your Solid State Drives (SSDs) or spinning disks.
+Note: Complete the optimization settings for either SSDs or spinning disks. Do not complete both procedures for either storage type.
+Optimize SSDs
+Complete the following steps to ensure the best settings for SSDs.
+1.	Ensure that the SysFS rotational flag is set to false (zero). 
+This overrides any detection by the operating system to ensure the drive is considered an SSD. 
+2.	Apply the same rotational flag setting for any block devices created from SSD storage, such as mdarrays.
+3.	Determine your devices by running lsblk:
+lsblk
+NAME   MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+vda    253:0    0  32G  0 disk
+|
+|-sda1 253:1    0   8M  0 part
+|-sda2 253:2    0  32G  0 part /
+In this example, the current devices are sda1 and sda2.
+4.	Set the IO scheduler to either deadline or noop for each of the listed devices:
+For example:
+echo deadline > /sys/block/device_name/queue/scheduler
+where device_name is the name of the device you want to apply settings for.
+o	The deadline scheduler optimizes requests to minimize IO latency. If in doubt, use the deadline scheduler.
+echo deadline > /sys/block/device_name/queue/scheduler
+o	The noop scheduler is the right choice when the target block device is an array of SSDs behind a high-end IO controller that performs IO optimization.
+echo noop > /sys/block/device_name/queue/scheduler
+5.	Set the nr_requests value to indicate the maximum number of read and write requests that can be queued:
+Machine size	Value
+Large machines	echo 128 sys/block/device_name/queue/nr_requests
+Small machines	echo 32 sys/block/device_name/queue/nr_requests
+6.	Set the readahead value for the block device to 8 KB. 
+This setting tells the operating system not to read extra bytes, which can increase IO time and pollute the cache with bytes that weren’t requested by the user.
+Note: The recommended readahead setting for RAID on SSDs is the same as that for SSDs that are not being used in a RAID installation.
+a.	Open /etc/rc.local for editing.
+b.	Add the following lines to set the readahead on startup:
+c.	touch /var/lock/subsys/local
+d.	echo 0 > /sys/class/block/sda/queue/rotational
+echo 8 > /sys/class/block/sda/queue/read_ahead_kb
+e.	Save and close /etc/rc.local.
+Optimize spinning disks
+1.	Check to ensure read-ahead value is not set to 65536:
+sudo blockdev --report /dev/spinning_disk
+2.	Set the readahead to 128, which is the recommended value:
+sudo blockdev --setra 128 /dev/spinning_disk
+
+Step 11: Installation of DSE Cassandra via YUM 
+2.	Copy DSE 6.7.7 rpms into a temp directory to local node
+dse-6.7.7-rpms.tar.gz is located on vdlcassandbda01.prvcld.syfbank.com
+Directory: home/lh004848/dse-rpms
+ 
+3.	 Exact tarball and ensure that all the rpm’s are available to install
+ 
+4.	Verify that DSE products do not exist on local node.
+rpm -qa | grep dse
+If earlier versions of DSE has already been installed then remove them with following command,
+sudo yum remove "dse-*" "datastax-*"
+5.	Run the following command under the directory where rpm’s are extracted
+sudo yum --nogpgcheck localinstall dse-*.rpm
+6.	Verify newly installed DSE products on local node.
+rpm -qa | grep dse
+ 
+Step 12: Configurations on DSE Cassandra
+1.	Edit /etc/dse/cassandra/cassandra.yaml 
+1.	Remove all the commented lines and blank lines from cassandra.yaml 
+2.	Add/replace the following parameters on 
+cluster_name: 'DevCluster02'
+num_tokens: 256
+data_file_directories:
+     - /var/lib/cassandra/data (data file directories must dedicated SSD and mount point only for sstables/bloom filters/partition summary/indexes)
+commitlog_directory: /var/lib/cassandra/commitlog (commit log directory must dedicated SSD and mount point only for commitlogs)
+listen_address: ipaddress of the node (example listen_address: 10.148.17.46)
+# seeds is actually a comma-delimited list of addresses. (will be 2-3 nodes from a data center)
+          # Ex: "<ip1>,<ip2>,<ip3>"
+          - seeds: "10.148.17.46, 10.148.17.47, 10.148.80.85, 10.148.80.182"
+endpoint_snitch: GossipingPropertyFileSnitch
+read_request_timeout_in_ms: 1600000
+range_request_timeout_in_ms: 1600000
+write_request_timeout_in_ms: 1600000
+request_timeout_in_ms: 1600000
+cas_contention_timeout_in_ms: 1000
+2.	Edit /etc/dse/cassandra-racdc.properties 
+Add Datacenter name on that DC and RACK
+# These properties are used with GossipingPropertyFileSnitch and will
+# indicate the rack and dc for this node
+dc=DAL
+rack=rack1
+ 
+3.	Edit /etc/dse/jvm.options 
+
+1.	Change G1 settings. Remove the comments from the below parameters,
+ 
+2.	Go to CMS settings on jvm.options and comment out lines like depicted as below,
+ 
+3.	Set heap size as mentioned below,
+
+# It is recommended to set min (-Xms) and max (-Xmx) heap sizes to
+# the same value to avoid stop-the-world GC pauses during resize, and
+# so that we can lock the heap in memory on startup to prevent any
+# of it from being swapped out.
+-Xms4G
+-Xmx4G
+  
+Maximum and minimum heap size
+The recommended maximum heap size depends on which GC is used:
+Hardware setup	Recommended MAX_HEAP_SIZE
+G1 for newer computers (8+ cores) with up to 256 GB RAM	16 GB to 32 GB
+See Java performance tuning.
+
+CMS for newer computers (8+ cores) with up to 256 GB RAM	No more than 16 GB
+Older computers	Typically 8 GB
+	
+4.	Enable GC logging, (Uncomment below line)
+-Xloggc:/var/log/cassandra/gc.log
+ 
+Step 7: Starting DSE Cassandra
+1.	Optional: Single-node cluster installations only:
+a.	Start DataStax Enterprise:
+sudo service dse start
+(Note: Swap memory has to be turned off during DSE startup or permanently)
+b.	Verify that DataStax Enterprise is running:
+nodetool status
+                       
+Helpful Links:
+•	Nodetool commands & explanations
+•	https://docs.datastax.com/en/dse/6.7/dse-admin/datastax_enterprise/config/configRecommendedSettings.html
+•	https://docs.datastax.com/en/install/6.7/install/installRHELdse.html
+•	https://docs.datastax.com/en/dse/6.7/dse-admin/datastax_enterprise/operations/opsConHeapSize.html
+
+
+
